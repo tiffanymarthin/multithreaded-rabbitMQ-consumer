@@ -1,5 +1,8 @@
 package cs6650.neu.a3.mysql;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 //import com.google.gson.Gson;
@@ -29,11 +32,15 @@ public class WordCountDao {
       logger.info("Remote connection successful.");
 
       logger.info("Attempting to create table: " + tableName);
+//      String createQueryStatement = "CREATE TABLE " + tableName +
+//          "(id INT NOT NULL AUTO_INCREMENT, " +
+//          " wordKey varchar(255), " +
+//          " wordCount int, " +
+//          " primary key (id));";
       String createQueryStatement = "CREATE TABLE " + tableName +
-          "(id INT NOT NULL AUTO_INCREMENT, " +
-          " wordKey varchar(255), " +
+          "(wordKey varchar(255), " +
           " wordCount int, " +
-          " primary key (id));";
+          " primary key (wordKey));";
       stmt.executeUpdate(createQueryStatement);
       logger.info("Created table in given database... : " + tableName);
     } catch (SQLException e) {
@@ -41,52 +48,40 @@ public class WordCountDao {
     }
   }
 
-  public void createWordCount(String key, String value, String tableName) {
+  public void createWordCount(String tableName, String message) {
     Connection conn = null;
-//    PreparedStatement preparedStatement = null;
-//    String insertQueryStatement = "INSERT INTO " + tableName + " (id, wordKey, wordCount) " +
-//        "VALUES (?, ?, ?)";
-
-//    String insertQueryStatement2 = "INSERT INTO " + tableName + " (id, wordKey, wordCount) ";
-    String insertQueryStatement2 =
-        "INSERT INTO " + tableName + " values (null, " + "'" + key + "', " + value + ")";
-
+    String insertQueryStatement =
+          "INSERT INTO " + tableName + "(wordKey, wordCount) values " + message;
     try {
       conn = dataSource.getConnection();
       Statement stmt = conn.createStatement();
-      String finalInsertQuery = insertQueryStatement2 + "VALUES (null, " + key + value + ");";
-      stmt.executeUpdate(insertQueryStatement2);
-
-//      preparedStatement = conn.prepareStatement(insertQueryStatement);
-//      preparedStatement.setString(1, null);
-//      preparedStatement.setString(2, key);
-//      preparedStatement.setInt(3, value);
-//
-//      preparedStatement.executeUpdate();
+      stmt.executeUpdate(insertQueryStatement);
     } catch (SQLException e) {
-      e.printStackTrace();
+      logger.info(e.getMessage());
     } finally {
       try {
         if (conn != null) {
           conn.close();
         }
-//        if (preparedStatement != null) {
-//          preparedStatement.close();
-      } catch (SQLException throwables) {
-        throwables.printStackTrace();
+      } catch (SQLException e) {
+        logger.info(e.getMessage());
       }
     }
   }
 
-//  public void updateTable(String message, String tableName) {
-//    Gson gson = new Gson();
-//    JsonElement jsonElement = gson.fromJson(message, JsonElement.class);
-//    JsonObject jsonObject = jsonElement.getAsJsonObject();
-//    for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
-//      String key = entry.getKey().replace("'", "");
-//      String value = entry.getValue().getAsString();
-//      createWordCount(key, value, tableName);
-//    }
-//  }
+  public String processMessage(String message) {
+    StringBuilder processedMessage = new StringBuilder();
+    Gson gson = new Gson();
+    JsonElement jsonElement = gson.fromJson(message, JsonElement.class);
+    JsonObject jsonObject = jsonElement.getAsJsonObject();
+    for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
+      String key = entry.getKey().replaceAll("'", "");
+      String value = entry.getValue().getAsString();
+      processedMessage.append("('").append(key).append("',").append(value).append("),");
+    }
+    processedMessage.deleteCharAt(processedMessage.length() - 1);
+    processedMessage.append(";");
+    return processedMessage.toString();
+  }
 
 }

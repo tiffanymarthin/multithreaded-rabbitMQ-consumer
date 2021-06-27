@@ -10,10 +10,12 @@ public class Main {
   private static final Logger logger = LogManager.getLogger(Main.class.getName());
   private static Integer MAX_THREADS = 128;
   private static String TABLE_NAME = "wc1";
+  private static Integer test_insert = 0;
 
   public static void main(String[] args) {
-    if (args.length == 1) {
+    if (args.length == 2) {
       TABLE_NAME = args[0];
+      test_insert = Integer.parseInt(args[1]);
     }
 
     Properties prop = new Properties();
@@ -25,7 +27,21 @@ public class Main {
     }
 
     WordCountDao wordCountDao = new WordCountDao();
-    wordCountDao.createTable(TABLE_NAME);
+    try {
+      wordCountDao.createTable(TABLE_NAME);
+    } catch (Exception e) {
+      logger.info(e.getMessage());
+    }
 //    logger.info("Table is created");
+    if(test_insert == 1) {
+      logger.info("Attempt to insert some items to table...");
+      String message = "('word1', 100), ('word2', 300);";
+      try {
+        wordCountDao.createWordCount(TABLE_NAME, message);
+        logger.info("successful insert!");
+      } catch (Exception e) {
+        logger.info(e.getMessage());
+      }
+    }
   }
 }
