@@ -1,22 +1,19 @@
-package cs6650.neu.a3.mysql;
+package cs6650.neu.a3;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
+import cs6650.neu.a3.rmq.PoolUtil;
+import cs6650.neu.a3.sql.WordCountDao;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+import org.apache.commons.pool2.ObjectPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -31,12 +28,12 @@ public class Main {
   private static ExecutorService executorService;
 
   // RabbitMQ variables
-  private final static String QUEUE_NAME = "wordCountQueue";
+  private final static String QUEUE_NAME = "wcQueue";
   private final static Integer MAX_MESSAGE_PER_RECEIVER = 1;
+  private static ObjectPool<Channel> rmqPool;
 
-
-  public static void main(String[] args) throws IOException, TimeoutException {
-    if (args.length == 2) {
+  public static void main(String[] args) throws Exception {
+    if (args.length == 3) {
       TABLE_NAME = args[0];
       MAX_THREADS = Integer.parseInt(args[1]);
       DELETE_TABLE = args[2];
@@ -52,12 +49,13 @@ public class Main {
       ex.printStackTrace();
     }
 
-    ConnectionFactory factory = new ConnectionFactory();
-    factory.setUsername(prop.getProperty("rabbit.username"));
-    factory.setPassword(prop.getProperty("rabbit.password"));
-    factory.setHost(prop.getProperty("rabbit.ip"));
-
-    final Connection connection = factory.newConnection();
+    rmqPool = PoolUtil.initializePool();
+//    ConnectionFactory factory = new ConnectionFactory();
+//    factory.setUsername(prop.getProperty("rabbit.username"));
+//    factory.setPassword(prop.getProperty("rabbit.password"));
+//    factory.setHost(prop.getProperty("rabbit.ip"));
+//
+//    final Connection connection = factory.newConnection();
 
     executorService = Executors.newFixedThreadPool(MAX_THREADS);
 
@@ -73,10 +71,11 @@ public class Main {
 
     Runnable runnable = () -> {
       try {
-        final Channel channel = connection.createChannel();
+//        final Channel channel = connection.createChannel();
+        Channel channel = rmqPool.borrowObject();
         channel.queueDeclare(QUEUE_NAME, true, false, false, null);
         // max one message per receiver
-//        channel.basicQos(MAX_MESSAGE_PER_RECEIVER);
+        channel.basicQos(MAX_MESSAGE_PER_RECEIVER);
 
         final DeliverCallback deliverCallback = (consumerTag, delivery) -> {
           String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
@@ -88,15 +87,19 @@ public class Main {
 
         channel.basicConsume(QUEUE_NAME, false, deliverCallback, consumerTag -> {
         });
+        rmqPool.returnObject(channel);
       } catch (IOException e) {
         logger.info(e.getMessage());
-      }
+      } catch (Exception e) {
+        logger.info(e.getMessage());
+        }
     };
 
-    for (int i = 0; i < 99500; i++) {
-//      Thread thread = new Thread(runnable);
-//      thread.start();
-      executorService.submit(runnable);
+    for (int i = 0; i < MAX_THREADS; i++) {
+//    for (int i = 0; i < 1000; i++) {
+      Thread thread = new Thread(runnable);
+      thread.start();
+//      executorService.submit(runnable);
     }
 
 //    logger.info("Table is created");
