@@ -1,10 +1,6 @@
-package cs6650.neu.a3.mysql;
+package cs6650.neu.a3.sql;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.zaxxer.hikari.HikariDataSource;
-import javax.xml.crypto.Data;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import java.sql.Connection;
