@@ -3,25 +3,20 @@ package cs6650.neu.a3.mysql;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.zaxxer.hikari.HikariDataSource;
+import javax.xml.crypto.Data;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-//import com.google.gson.Gson;
-//import com.google.gson.JsonElement;
-//import com.google.gson.JsonObject;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Map;
-import org.apache.commons.dbcp2.*;
 
 public class WordCountDao {
 
   private static final Logger logger = LogManager.getLogger(WordCountDao.class.getName());
-  private static BasicDataSource dataSource;
+  private static HikariDataSource dataSource = DataSource.getDataSource();
 
   public WordCountDao() {
-    dataSource = DBCPDataSource.getDataSource();
   }
 
   public void createTable(String tableName) {
@@ -39,8 +34,7 @@ public class WordCountDao {
 //          " primary key (id));";
       String createQueryStatement = "CREATE TABLE " + tableName +
           "(wordKey varchar(255), " +
-          " wordCount int, " +
-          " primary key (wordKey));";
+          " wordCount int);";
       stmt.executeUpdate(createQueryStatement);
       logger.info("Created table in given database... : " + tableName);
     } catch (SQLException e) {
@@ -49,39 +43,28 @@ public class WordCountDao {
   }
 
   public void createWordCount(String tableName, String message) {
-    Connection conn = null;
     String insertQueryStatement =
-          "INSERT INTO " + tableName + "(wordKey, wordCount) values " + message;
-    try {
-      conn = dataSource.getConnection();
-      Statement stmt = conn.createStatement();
+        "INSERT INTO " + tableName + "(wordKey, wordCount) values " + message;
+//        + "ON DUPLICATE KEY UPDATE wordCount = VALUES(wordCount)";
+    try (Connection conn = DataSource.getConnection();
+        Statement stmt = conn.createStatement();
+    ) {
       stmt.executeUpdate(insertQueryStatement);
     } catch (SQLException e) {
       logger.info(e.getMessage());
-    } finally {
-      try {
-        if (conn != null) {
-          conn.close();
-        }
-      } catch (SQLException e) {
-        logger.info(e.getMessage());
-      }
     }
   }
 
-  public String processMessage(String message) {
-    StringBuilder processedMessage = new StringBuilder();
-    Gson gson = new Gson();
-    JsonElement jsonElement = gson.fromJson(message, JsonElement.class);
-    JsonObject jsonObject = jsonElement.getAsJsonObject();
-    for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
-      String key = entry.getKey().replaceAll("'", "");
-      String value = entry.getValue().getAsString();
-      processedMessage.append("('").append(key).append("',").append(value).append("),");
+  public void deleteTable(String tableName) {
+    String deleteQuery = "DROP TABLE " + tableName;
+    try (Connection conn = DataSource.getConnection();
+        Statement stmt = conn.createStatement();
+    ) {
+      stmt.executeUpdate(deleteQuery);
+      logger.info("Table deleted in given database...");
+    } catch (SQLException e) {
+      logger.info(e.getMessage());
     }
-    processedMessage.deleteCharAt(processedMessage.length() - 1);
-    processedMessage.append(";");
-    return processedMessage.toString();
   }
 
 }
