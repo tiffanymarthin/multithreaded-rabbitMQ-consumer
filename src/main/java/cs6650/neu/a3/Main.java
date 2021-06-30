@@ -30,7 +30,7 @@ public class Main {
   // RabbitMQ variables
   private final static String QUEUE_NAME = "wcQueue";
   private final static Integer MAX_MESSAGE_PER_RECEIVER = 1;
-  private static ObjectPool<Channel> rmqPool;
+//  private static ObjectPool<Channel> rmqPool;
 
   public static void main(String[] args) throws Exception {
     if (args.length == 3) {
@@ -49,13 +49,13 @@ public class Main {
       ex.printStackTrace();
     }
 
-    rmqPool = PoolUtil.initializePool();
-//    ConnectionFactory factory = new ConnectionFactory();
-//    factory.setUsername(prop.getProperty("rabbit.username"));
-//    factory.setPassword(prop.getProperty("rabbit.password"));
-//    factory.setHost(prop.getProperty("rabbit.ip"));
+//    rmqPool = PoolUtil.initializePool();
+    ConnectionFactory factory = new ConnectionFactory();
+    factory.setUsername(prop.getProperty("rabbit.username"));
+    factory.setPassword(prop.getProperty("rabbit.password"));
+    factory.setHost(prop.getProperty("rabbit.ip"));
 //
-//    final Connection connection = factory.newConnection();
+    final Connection connection = factory.newConnection();
 
     executorService = Executors.newFixedThreadPool(MAX_THREADS);
 
@@ -71,23 +71,25 @@ public class Main {
 
     Runnable runnable = () -> {
       try {
-//        final Channel channel = connection.createChannel();
-        Channel channel = rmqPool.borrowObject();
+        final Channel channel = connection.createChannel();
+//        Channel channel = rmqPool.borrowObject();
         channel.queueDeclare(QUEUE_NAME, true, false, false, null);
         // max one message per receiver
         channel.basicQos(MAX_MESSAGE_PER_RECEIVER);
 
         final DeliverCallback deliverCallback = (consumerTag, delivery) -> {
           String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
-          channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+//          channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
 //          logger.info("Callback thread ID = " + Thread.currentThread().getId() + " Received: " + message);
           String processedMessage = WordCount.processMessage(message);
           wordCountDao.createWordCount(TABLE_NAME, processedMessage);
         };
 
-        channel.basicConsume(QUEUE_NAME, false, deliverCallback, consumerTag -> {
+        // b: true -> autoack
+        channel.basicConsume(QUEUE_NAME, true, deliverCallback, consumerTag -> {
+//        channel.basicConsume(QUEUE_NAME, false, deliverCallback, consumerTag -> {
         });
-        rmqPool.returnObject(channel);
+//        rmqPool.returnObject(channel);
       } catch (IOException e) {
         logger.info(e.getMessage());
       } catch (Exception e) {

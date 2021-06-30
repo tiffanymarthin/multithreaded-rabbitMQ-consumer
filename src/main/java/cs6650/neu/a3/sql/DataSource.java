@@ -60,7 +60,7 @@ public class DataSource {
     config.addDataSourceProperty("elideSetAutoCommits", true);
     config.addDataSourceProperty("maintainTimeStats", false);
     ds = new HikariDataSource(config);
-    ds.setMaximumPoolSize(60);
+    ds.setMaximumPoolSize(100);
   }
 
   public static HikariDataSource getDataSource() {
